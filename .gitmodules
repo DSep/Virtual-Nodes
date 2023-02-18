@@ -1,0 +1,6 @@
+[submodule "Heterophily_and_oversmoothing"]
+	path = Heterophily_and_oversmoothing
+	url = git@github.com:DSep/Heterophily_and_oversmoothing.git
+[submodule "understanding-oversquashing"]
+	path = understanding-oversquashing
+	url = git@github.com:DSep/understanding-oversquashing.git
