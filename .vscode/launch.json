@@ -5,10 +5,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Current File",
+            "name": "Python: Full-supervised.py",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/Heterophily_and_oversmoothing/full-supervised.py",
+            "cwd": "${workspaceFolder}/Heterophily_and_oversmoothing",
             "console": "integratedTerminal",
             "justMyCode": true,
             "args": [
