@@ -1,0 +1,23 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/Heterophily_and_oversmoothing/full-supervised.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--data", "chameleon",
+                "--layer", "2",
+                "--weight_decay", "5e-5",
+                "--model", "GCN",
+                "--hidden", "16"
+            ]
+        }
+    ]
+}
