@@ -1,0 +1,29 @@
+# Python==3.7.8, but functional on 3.8.13
+# TODO Test dependencies
+numpy==1.18.5
+scipy==1.5.3
+torch=>=1.6.0
+torchaudio
+torchvision
+torch-geometric
+torch-scatter
+torch-sparse
+networkx==2.5
+scikit-learn==0.23.2
+dgl==0.4.3
+wandb
+
+
+# # TODO Cleanup and add oversquashing dependencies?
+# python>=3.6
+# pandas
+# matplotlib
+# seaborn
+# jupyterlab
+# pytorch>=1.9
+# torchvision
+# torchaudio
+# black
+# numba
+# jupyter[lab]
+# # for cuda machine you need to install cudatoolkit

@@ -7,6 +7,10 @@ Setup and usage
 git clone git@github.com:DSep/virtual-nodes.git
 cd virtual-nodes
 git submodule update --init --recursive
+pip install -r requirements.txt
+pip install -e Heterophily_and_oversmoothing
+pip install -e understanding_oversquashing
+pip install -e .
 ```
 
 To avoid dependency conflicts, it is highly recommended that our code is run in a fresh conda/miniconda environment which can be easily configured (if running mac OSX) by executing the following in a terminal:
