@@ -9,6 +9,16 @@ cd virtual-nodes
 git submodule update --init --recursive
 ```
 
+To avoid dependency conflicts, it is highly recommended that our code is run in a fresh conda/miniconda environment which can be easily configured (if running mac OSX) by executing the following in a terminal:
+
+```
+conda create -n virtual_nodes python=3.9
+conda activate virtual_nodes
+conda install pytorch torchvision -c pytorch
+conda install pyg -c pyg
+conda install -c dglteam dgl
+```
+
 TODOS:
-- [ ] Add modules to PYTHONPATH and add instructions for this (aka Heterophily and curvature folders)
+- [ ] Add setup.py files for top level and submodules to make easy referencing from anywhere (aka Heterophily and curvature folders)
 - [ ] Setup proper testing in home directory and move tests to this folder
