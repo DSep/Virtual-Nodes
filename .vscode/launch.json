@@ -17,7 +17,8 @@
                 "--layer", "2",
                 "--weight_decay", "5e-5",
                 "--model", "GCN",
-                "--hidden", "16"
+                "--hidden", "16",
+                "--no_wandb",
             ]
         },
         {
