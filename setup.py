@@ -6,7 +6,7 @@ packages = find_packages()
 for p in packages:
     assert p == 'virtual_nodes' or p.startswith('virtual_nodes.')
 
-setup(name='drl-implementation',
+setup(name='virtual-nodes',
       version='1.0.0',
       description='Graph augmentation with virtual nodes',
       url='https://github.com/DSep/virtual-nodes',

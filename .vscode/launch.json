@@ -11,7 +11,7 @@
             "program": "${workspaceFolder}/Heterophily_and_oversmoothing/full-supervised.py",
             "cwd": "${workspaceFolder}/Heterophily_and_oversmoothing",
             "console": "integratedTerminal",
-            "justMyCode": true,
+            "justMyCode": false,
             "args": [
                 "--data", "chameleon",
                 "--layer", "2",
@@ -19,6 +19,15 @@
                 "--model", "GCN",
                 "--hidden", "16"
             ]
+        },
+        {
+            "name": "Python: Tests",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/Heterophily_and_oversmoothing/test_process_add_vnodes.py",
+            "cwd": "${workspaceFolder}/Heterophily_and_oversmoothing",
+            "console": "integratedTerminal",
+            "justMyCode": false,
         }
     ]
 }
