@@ -19,7 +19,7 @@
                 "--model", "GCN",
                 "--hidden", "16",
                 "--augment",
-                "--augment_ratio", "0.1",
+                "--augment_ratio", "0.2",
                 "--n_seeds", "1",
                 "--no_wandb",
             ]
@@ -39,7 +39,7 @@
                 "--model", "MLP",
                 "--hidden", "16",
                 "--augment",
-                "--augment_ratio", "0.1",
+                "--augment_ratio", "0.2",
                 "--n_seeds", "1",
                 "--no_wandb",
             ]
@@ -59,7 +59,7 @@
                 "--model", "MLP",
                 "--hidden", "16",
                 "--augment",
-                "--augment_ratio", "0.1",
+                "--augment_ratio", "0.2",
                 "--n_seeds", "1",
                 "--no_wandb",
             ]

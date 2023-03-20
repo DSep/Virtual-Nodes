@@ -288,7 +288,7 @@ def update_masks(train_mask, val_mask, test_mask, num_new_nodes):
     Updated masks (train_mask, val_mask, test_mask), size (N + num_new_nodes,).
     '''
     # Extend the length of train_mask by num_new_nodes and set the last num_new_nodes to 1
-    train_mask = torch.cat((train_mask, torch.ones(num_new_nodes)), dim=0).bool()
+    train_mask = torch.cat((train_mask, torch.zeros(num_new_nodes)), dim=0).bool()
 
     # Extend the length of val_mask by num_new_nodes and set the last num_new_nodes to 0
     val_mask = torch.cat((val_mask, torch.zeros(num_new_nodes)), dim=0).bool()
@@ -451,8 +451,7 @@ def augment_graph(
 
     # Update masks to be the same size as the new graph
     train_mask, val_mask, test_mask = update_masks(train_mask, val_mask, test_mask, num_new_nodes)
-
-    return g, features, labels, train_mask, val_mask, test_mask, num_features, num_labels
+    return g, features, labels, train_mask, val_mask, test_mask, num_features, num_labels, num_new_nodes
 
 def naive_strategy_2():
     pass
