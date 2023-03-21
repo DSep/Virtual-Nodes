@@ -1,6 +1,6 @@
 import torch
 
-from virtual_nodes.augment import compute_neighbourhood_feature_label_distribution, add_vnodes, compute_differences, unmask_graph
+from virtual_nodes.augment import compute_neighbourhood_feature_label_distribution, add_vnodes, compute_differences, unmask_graph, add_undirected_vnodes_to_graph
 from virtual_nodes.visualisation import visualise_graph
 
 
@@ -140,7 +140,7 @@ def test_unmask_graph_add_vnodes_entire_masking():
     assert(torch.allclose(labels_restored[simple_features.shape[0] + 1], torch.tensor([0])))
 
 
-def test_unmask_graph_add_vnodes_partial_masking():
+def test_unmask_graph_add_vnodes_partial_masking(directed: bool = True):
     train_mask = torch.tensor([True, False, True, False, True])
     num_new_nodes = 2
     new_edges = torch.tensor([[3, 0], [3, 1], [3, 2], [4, 1], [4, 2]])
@@ -154,14 +154,27 @@ def test_unmask_graph_add_vnodes_partial_masking():
     masked_labels = labels[train_mask]
     visualise_graph(masked_simple_g, 'masked_g.png')
     
-    g_prime, features_prime, labels_prime = add_vnodes(masked_simple_g,
-                                                       masked_simple_features,
-                                                       masked_labels,
-                                                       num_new_nodes,
-                                                       new_edges,
-                                                       new_features,
-                                                       new_labels)
-    visualise_graph(g_prime, 'masked_g_with_vnodes.png')
+    # NOTE: You can change the behaviour of the test here
+    if directed:
+        g_prime, features_prime, labels_prime = add_vnodes(masked_simple_g,
+                                                        masked_simple_features,
+                                                        masked_labels,
+                                                        num_new_nodes,
+                                                        new_edges,
+                                                        new_features,
+                                                        new_labels)
+        
+        visualise_graph(g_prime, 'masked_g_with_vnodes.png')
+    else:
+        g_prime, features_prime, labels_prime = add_undirected_vnodes_to_graph(masked_simple_g,
+                                                                               masked_simple_features,
+                                                                               masked_labels,
+                                                                               new_features,
+                                                                               new_edges,
+                                                                               new_labels,
+                                                                               num_new_nodes)
+
+        visualise_graph(g_prime, 'masked_g_with_undirected_vnodes.png')
 
     g_restored, features_restored, labels_restored = unmask_graph(simple_g,
                                                                   simple_features,
@@ -169,8 +182,11 @@ def test_unmask_graph_add_vnodes_partial_masking():
                                                                   g_prime,
                                                                   features_prime,
                                                                   labels_prime,
-                                                                  train_mask)
-    visualise_graph(g_restored, 'g_restored.png')
+                                                                  train_mask,
+                                                                  directed=directed)
+    
+    restored_str = 'g_restored_directed.png' if directed else 'g_restored_undirected.png'
+    visualise_graph(g_restored, restored_str)
     
     # Shape should go to (N + 2, N + 2)
     assert(g_restored.shape == (simple_g.shape[0] + num_new_nodes, simple_g.shape[0] + num_new_nodes))
@@ -194,7 +210,8 @@ def test_compute_difference():
     assert False
 
 if __name__ == '__main__':
-    testcompute_neighbourhood_feature_label_distribution()
-    test_unmask_graph_identity()
-    test_unmask_graph_add_vnodes_entire_masking()
-    test_unmask_graph_add_vnodes_partial_masking()
+    # testcompute_neighbourhood_feature_label_distribution()
+    # test_unmask_graph_identity()
+    # test_unmask_graph_add_vnodes_entire_masking()
+    # test_unmask_graph_add_vnodes_partial_masking(directed=True)
+    test_unmask_graph_add_vnodes_partial_masking(directed=False)

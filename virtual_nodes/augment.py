@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import numpy as np
-
+import networkx as nx
 
 def compute_neighbourhood_feature_label_distribution(g, features, labels, num_labels):
     '''
@@ -126,11 +126,75 @@ def add_vnodes(
     g_prime = F.pad(masked_g, (0, num_new_nodes), mode='constant', value=0) # (N x (N + N'))
     g_prime = torch.cat((g_prime, torch.zeros((num_new_nodes, g_prime.shape[1]), dtype=torch.long)), dim=0) # (N + N' x (N + N'))
     g_prime[new_edges[:, 0], new_edges[:, 1]] = 1 # Add the new edges to the graph
+    
+    # NOTE Implemented as function add_undirected_vnodes_to_graph below
+    # if not directed:
+    #     g_prime[new_edges[:, 1], new_edges[:, 0]] = 1 # Add the new edges to the graph
 
     features_prime = torch.cat((masked_features, new_features), dim=0) # (N + N' x F)
     labels_prime = torch.cat((masked_labels, new_labels), dim=0) # (N + N')
 
     return g_prime, features_prime, labels_prime
+
+
+def add_undirected_vnodes_to_graph(g,
+                                   features,
+                                   labels, 
+                                   new_features, 
+                                   new_edges, 
+                                   new_labels, 
+                                   num_new_nodes):
+    '''
+    Args:
+
+    (+) g (torch.tensor): Assumes raw adjacency matrix `g` (N x N) as a torch.tensor.
+    (+) features (torch.tensor): is a (N x F) torch.tensor where each row represents the features of a node.
+    ...
+    (+) num_new_nodes (int): Self-explanatory.
+    (+) new_edges (torch.tensor): (N' x 2) tensor where each row represents a directed edge from the source
+                                    to the destination node.
+    (+) new_features (torch.tensor): (N' x F) tensor representing the features of the new nodes added.
+    (+) new_labels (torch.tensor): (N') tensor representing the labels of the new nodes added.
+
+    Returns:
+
+    1. A new adjacency matrix as a torch.tensor (N + N', N + N') containing the additional virtual nodes
+         where N' denotes the number of virtual nodes to introduce.
+    2. A new feature matrix as a torch.tensor (N + N', F) where F denotes the feature dimension.
+    3. A new label vector as a torch.tensor (N + N').
+    '''
+    G = nx.from_numpy_array(g.numpy(), create_using=nx.DiGraph)
+
+    for i, (features, label) in enumerate(zip(features, labels)):
+        G.nodes[i]['features'] = features.numpy()
+        G.nodes[i]['label'] = label.item()
+
+    # Create the virtual nodes in the graph.
+    for i in range(num_new_nodes):
+        G.add_node(i + g.shape[0])
+        G.nodes[i + g.shape[0]]['features'] = new_features[i].numpy()
+        G.nodes[i + g.shape[0]]['label'] = new_labels[i].item()
+    
+    # Create bidirectional edges between the new virtual nodes and the target nodes.
+    for i in range(new_edges.shape[0]):
+        G.add_edge(new_edges[i, 0].item(), new_edges[i, 1].item())
+        G.add_edge(new_edges[i, 1].item(), new_edges[i, 0].item())
+    
+    # Convert the graph back to a tensor.
+    g_prime = torch.tensor(nx.to_numpy_array(G))
+    features_prime = torch.tensor([G.nodes[i]['features'] for i in range(g_prime.shape[0])])
+    labels_prime = torch.tensor([G.nodes[i]['label'] for i in range(g_prime.shape[0])])
+    
+    # Assert that the shape of `g_prime` is what we expect
+    assert g_prime.shape[0] == g_prime.shape[1], "Augmented graph is not square."
+    assert g_prime.shape[0] == features_prime.shape[0], "Augmented graph and features are not the same size."
+    assert g_prime.shape[0] == labels_prime.shape[0], "Augmented graph and labels are not the same size."
+    assert g_prime.shape[0] == g.shape[0] + num_new_nodes, "Augmented graph is not the correct size."
+
+    assert torch.sum(g_prime) == torch.sum(g) + new_edges.shape[0] * 2, "Wrong number of edges"
+
+    return g_prime, features_prime, labels_prime
+
 
 def compute_differences(
     g,
@@ -299,7 +363,7 @@ def update_masks(train_mask, val_mask, test_mask, num_new_nodes):
     return train_mask, val_mask, test_mask
 
 
-def unmask_graph(g, features, labels, g_prime, features_prime, labels_prime, train_mask):
+def unmask_graph(g, features, labels, g_prime, features_prime, labels_prime, train_mask, directed=True):
     '''
     Before computing which virtual nodes to add, we mask g, features and labels using
     train_mask. Then, we call add_virtual_nodes on the masked g, features and labels.
@@ -337,6 +401,9 @@ def unmask_graph(g, features, labels, g_prime, features_prime, labels_prime, tra
         updated_idxs = target_idxs + masked_diffs[target_idxs] # (num_neighbours,)
         restored_vnode_idx = g.shape[0] + i
         g_restored[restored_vnode_idx, updated_idxs] = 1
+
+        if not directed:
+            g_restored[updated_idxs, restored_vnode_idx] = 1
 
     features_restored[g.shape[0]:, :] = features_prime[g_prime.shape[0] - num_new_nodes:, :]
     labels_restored[g.shape[0]:] = labels_prime[g_prime.shape[0] - num_new_nodes:]
@@ -406,6 +473,7 @@ def augment_graph(
     num_labels,
     p,
     agg,
+    undirected=True,
 ):
     '''
     Creates virtual nodes according to a chosen strategy.
@@ -418,6 +486,8 @@ def augment_graph(
     (+) labels (torch.tensor): Node labels of the full graph (unmasked) (N,).
     (+) train_mask (torch.tensor): Mask indicating which nodes we know the labels of (N,).
     (+) p (float): Proportion of nodes to add virtual nodes to.
+    (+) undirected (bool): Whether the edges connecting virtual to target nodes should be
+                           directed or not.
 
     Returns:
 
@@ -437,7 +507,16 @@ def augment_graph(
     
     num_new_nodes, new_edges, new_features, new_labels = create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, masked_g.shape[0], num_labels, p, agg)
 
-    g_prime, features_prime, labels_prime = add_vnodes(masked_g, masked_features, masked_labels, num_new_nodes, new_edges, new_features, new_labels)
+    if not undirected:
+        g_prime, features_prime, labels_prime = add_vnodes(masked_g, masked_features, masked_labels, num_new_nodes, new_edges, new_features, new_labels)
+    else:
+        g_prime, features_prime, labels_prime = add_undirected_vnodes_to_graph(masked_g, 
+                                                                               masked_features,
+                                                                               masked_labels,
+                                                                               new_features,
+                                                                               new_edges,
+                                                                               new_labels,
+                                                                               num_new_nodes)
 
     print(f'Num New Nodes: {num_new_nodes}.')
     print(f'Actual Num New Nodes: {g_prime.shape[0] - masked_g.shape[0]}')
