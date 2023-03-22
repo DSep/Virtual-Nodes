@@ -1,6 +1,7 @@
 import torch
 
 from virtual_nodes.augment import compute_neighbourhood_feature_label_distribution, add_vnodes, compute_differences, unmask_graph, add_undirected_vnodes_to_graph
+from virtual_nodes.augment import compute_khop_neighbourhood_distributions
 from virtual_nodes.visualisation import visualise_graph
 
 
@@ -22,6 +23,43 @@ num_labels = torch.unique(labels).max().item() + 1
 
 train_mask = torch.tensor([1, 0, 1, 0, 1])
 # Unit tests for process.py
+
+def test_compute_khop_neighbourhood_distributions_concat_simple():
+    neigh_label_dist, neigh_feat_mu, neigh_feat_std = compute_khop_neighbourhood_distributions(simple_g, 
+                                                                                               simple_features, 
+                                                                                               labels,
+                                                                                               k=1,
+                                                                                               num_nodes=simple_g.shape[0],
+                                                                                               num_features=simple_features.shape[1],
+                                                                                               num_labels=num_labels, 
+                                                                                               agg='concat')
+    
+    print ("neigh_label_dist", neigh_label_dist)
+    print ("neigh_feat_mu", neigh_feat_mu)
+    print ("neigh_feat_std", neigh_feat_std)
+
+    assert neigh_label_dist.shape == (simple_g.shape[0], num_labels)
+    assert neigh_feat_mu.shape == (simple_g.shape[0], simple_features.shape[1])
+    assert neigh_feat_std.shape == (simple_g.shape[0], simple_features.shape[1])
+
+
+def test_compute_khop_neighbourhood_distributions_concat():
+    neigh_label_dist, neigh_feat_mu, neigh_feat_std = compute_khop_neighbourhood_distributions(simple_g, 
+                                                                                               simple_features, 
+                                                                                               labels,
+                                                                                               k=2,
+                                                                                               num_nodes=simple_g.shape[0],
+                                                                                               num_features=simple_features.shape[1],
+                                                                                               num_labels=num_labels, 
+                                                                                               agg='concat')
+    
+    print ("neigh_label_dist", neigh_label_dist)
+    print ("neigh_feat_mu", neigh_feat_mu)
+    print ("neigh_feat_std", neigh_feat_std)
+
+    assert neigh_label_dist.shape == (simple_g.shape[0], num_labels * 2)
+    assert neigh_feat_mu.shape == (simple_g.shape[0], simple_features.shape[1] * 2)
+    assert neigh_feat_std.shape == (simple_g.shape[0], simple_features.shape[1] * 2)
 
 
 def testcompute_neighbourhood_feature_label_distribution():
@@ -214,4 +252,6 @@ if __name__ == '__main__':
     # test_unmask_graph_identity()
     # test_unmask_graph_add_vnodes_entire_masking()
     # test_unmask_graph_add_vnodes_partial_masking(directed=True)
-    test_unmask_graph_add_vnodes_partial_masking(directed=False)
+    # test_unmask_graph_add_vnodes_partial_masking(directed=False)
+    # test_compute_khop_neighbourhood_distributions_concat_simple()
+    test_compute_khop_neighbourhood_distributions_concat()
