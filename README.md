@@ -23,6 +23,12 @@ conda install pyg -c pyg
 conda install -c dglteam dgl
 ```
 
+## Running experiments
+```bash
+# Start in the root directory of the repository
+sh experiments/method1.sh
+```
+
 TODOS:
 - [ ] Add setup.py files for top level and submodules to make easy referencing from anywhere (aka Heterophily and curvature folders)
 - [ ] Setup proper testing in home directory and move tests to this folder

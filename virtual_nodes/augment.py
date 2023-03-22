@@ -415,7 +415,7 @@ def mask_and_op(g, features, labels, train_mask):
     '''
     pass
 
-def update_masks(train_mask, val_mask, test_mask, num_new_nodes):
+def update_masks(train_mask, val_mask, test_mask, num_new_nodes, include_vnode_labels=False):
     '''
     Updates the masks to account for the new nodes added to the graph.
 
@@ -428,12 +428,16 @@ def update_masks(train_mask, val_mask, test_mask, num_new_nodes):
     (+) test_mask (torch.tensor): Mask indicating which nodes we know the labels of
         (N,).
     (+) num_new_nodes (int): Number of new nodes added to the graph.
+    (+) include_vnode_labels (bool): Whether to include the virtual nodes' labels in training.
 
     Returns:
     Updated masks (train_mask, val_mask, test_mask), size (N + num_new_nodes,).
     '''
     # Extend the length of train_mask by num_new_nodes and set the last num_new_nodes to 1
-    train_mask = torch.cat((train_mask, torch.zeros(num_new_nodes)), dim=0).bool()
+    if include_vnode_labels:
+        train_mask = torch.cat((train_mask, torch.ones(num_new_nodes)), dim=0).bool()
+    else:
+        train_mask = torch.cat((train_mask, torch.zeros(num_new_nodes)), dim=0).bool()
 
     # Extend the length of val_mask by num_new_nodes and set the last num_new_nodes to 0
     val_mask = torch.cat((val_mask, torch.zeros(num_new_nodes)), dim=0).bool()
@@ -444,7 +448,7 @@ def update_masks(train_mask, val_mask, test_mask, num_new_nodes):
     return train_mask, val_mask, test_mask
 
 
-def unmask_graph(g, features, labels, g_prime, features_prime, labels_prime, train_mask, directed=True):
+def unmask_graph(g, features, labels, g_prime, features_prime, labels_prime, train_mask, directed=False):
     '''
     Before computing which virtual nodes to add, we mask g, features and labels using
     train_mask. Then, we call add_virtual_nodes on the masked g, features and labels.
@@ -543,8 +547,11 @@ def create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, num
 
     if clip:
         # Replace every element in `new_features` >= 0.5 with 1 and < 0.5 with 0
-        new_features[new_features >= 0.5] = 1
-        new_features[new_features < 0.5] = 0
+        clip_threshold = 0.5
+        new_features[new_features >= clip_threshold] = 1
+        new_features[new_features < clip_threshold] = 0
+        print(f'Clipped new features to {clip_threshold} threshold.')
+
 
     return new_nodes.shape[0], new_edges, new_features, new_labels
 
@@ -560,7 +567,9 @@ def augment_graph(
     num_labels,
     p,
     agg,
-    undirected=True,
+    directed=False,
+    clip=True,
+    include_vnode_labels=False,
 ):
     '''
     Creates virtual nodes according to a chosen strategy.
@@ -575,6 +584,8 @@ def augment_graph(
     (+) p (float): Proportion of nodes to add virtual nodes to.
     (+) undirected (bool): Whether the edges connecting virtual to target nodes should be
                            directed or not.
+    (+) clip (bool): Whether to clip the new features to 0 or 1.
+    (+) include_vnode_labels (bool): Whether to mask the virtual nodes in the train mask.
 
     Returns:
 
@@ -592,11 +603,13 @@ def augment_graph(
     masked_features = features[train_mask, :]
     masked_labels = labels[train_mask]
     
-    num_new_nodes, new_edges, new_features, new_labels = create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, masked_g.shape[0], num_labels, p, agg)
+    num_new_nodes, new_edges, new_features, new_labels = create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, masked_g.shape[0], num_labels, p, agg, clip)
 
-    if not undirected:
+    if directed:
+        print(f'Directed edges between virtual and target nodes, directed=={directed}')
         g_prime, features_prime, labels_prime = add_vnodes(masked_g, masked_features, masked_labels, num_new_nodes, new_edges, new_features, new_labels)
     else:
+        print(f'Undirected edges between virtual and target nodes, directed=={directed}')
         g_prime, features_prime, labels_prime = add_undirected_vnodes_to_graph(masked_g, 
                                                                                masked_features,
                                                                                masked_labels,
@@ -611,12 +624,12 @@ def augment_graph(
     print(f'G Shape: {g.shape}')
 
     # Unmask the graph
-    g, features, labels = unmask_graph(g, features, labels, g_prime, features_prime, labels_prime, train_mask)
+    g, features, labels = unmask_graph(g, features, labels, g_prime, features_prime, labels_prime, train_mask, directed=directed)
 
     print(f'G Augmented: {g.shape}')
 
     # Update masks to be the same size as the new graph
-    train_mask, val_mask, test_mask = update_masks(train_mask, val_mask, test_mask, num_new_nodes)
+    train_mask, val_mask, test_mask = update_masks(train_mask, val_mask, test_mask, num_new_nodes, include_vnode_labels)
     return g, features, labels, train_mask, val_mask, test_mask, num_features, num_labels, num_new_nodes
 
 def naive_strategy_2():
