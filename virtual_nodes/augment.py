@@ -492,7 +492,7 @@ def unmask_graph(g, features, labels, g_prime, features_prime, labels_prime, tra
     return g_restored, features_restored, labels_restored
 
 
-def create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, num_nodes_masked, num_labels, p, agg):
+def create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, num_nodes_masked, num_labels, p, agg, clip=True):
     """
     For all observable nodes, computes the neighbourhood mean and std deviations of the
     neighbourhood label distributions (NDs) for each class. Then for each node with an 
@@ -540,6 +540,12 @@ def create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, num
     
     new_labels = target_indices[:, 1]
     new_features = torch.tensor(label_feat_mu[new_labels, :])
+
+    if clip:
+        # Replace every element in `new_features` >= 0.5 with 1 and < 0.5 with 0
+        new_features[new_features >= 0.5] = 1
+        new_features[new_features < 0.5] = 0
+
     return new_nodes.shape[0], new_edges, new_features, new_labels
 
 
