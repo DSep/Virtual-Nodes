@@ -24,9 +24,14 @@ conda install -c dglteam dgl
 ```
 
 ## Running experiments
+Start in the root directory of the repository
 ```bash
-# Start in the root directory of the repository
-sh experiments/method1.sh
+sh virtual_nodes/experiments/method1.sh
+```
+
+Or  on the server:
+```bash
+nohup bash virtual_nodes/experiments/method1.sh > TIME_DAY_03_2023_method1.log 2> nohup.err < /dev/null &
 ```
 
 TODOS:
