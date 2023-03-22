@@ -25,7 +25,7 @@ train_mask = torch.tensor([1, 0, 1, 0, 1])
 # Unit tests for process.py
 
 def test_compute_khop_neighbourhood_distributions_concat_simple():
-    neigh_label_dist, neigh_feat_mu, neigh_feat_std = compute_khop_neighbourhood_distributions(simple_g, 
+    neigh_label_dist, neigh_feat_mu = compute_khop_neighbourhood_distributions(simple_g, 
                                                                                                simple_features, 
                                                                                                labels,
                                                                                                k=1,
@@ -36,18 +36,17 @@ def test_compute_khop_neighbourhood_distributions_concat_simple():
     
     print ("neigh_label_dist", neigh_label_dist)
     print ("neigh_feat_mu", neigh_feat_mu)
-    print ("neigh_feat_std", neigh_feat_std)
 
     assert neigh_label_dist.shape == (simple_g.shape[0], num_labels)
     assert neigh_feat_mu.shape == (simple_g.shape[0], simple_features.shape[1])
-    assert neigh_feat_std.shape == (simple_g.shape[0], simple_features.shape[1])
 
 
 def test_compute_khop_neighbourhood_distributions_concat():
-    neigh_label_dist, neigh_feat_mu, neigh_feat_std = compute_khop_neighbourhood_distributions(simple_g, 
+    k = 2
+    neigh_label_dist, neigh_feat_mu = compute_khop_neighbourhood_distributions(simple_g, 
                                                                                                simple_features, 
                                                                                                labels,
-                                                                                               k=2,
+                                                                                               k=k,
                                                                                                num_nodes=simple_g.shape[0],
                                                                                                num_features=simple_features.shape[1],
                                                                                                num_labels=num_labels, 
@@ -55,11 +54,11 @@ def test_compute_khop_neighbourhood_distributions_concat():
     
     print ("neigh_label_dist", neigh_label_dist)
     print ("neigh_feat_mu", neigh_feat_mu)
-    print ("neigh_feat_std", neigh_feat_std)
 
-    assert neigh_label_dist.shape == (simple_g.shape[0], num_labels * 2)
-    assert neigh_feat_mu.shape == (simple_g.shape[0], simple_features.shape[1] * 2)
-    assert neigh_feat_std.shape == (simple_g.shape[0], simple_features.shape[1] * 2)
+    assert neigh_label_dist.shape == (simple_g.shape[0], num_labels * k)
+    assert neigh_feat_mu.shape == (simple_g.shape[0], simple_features.shape[1] * k)
+
+    visualise_graph(simple_g, 'simple_g.png')
 
 
 def testcompute_neighbourhood_feature_label_distribution():

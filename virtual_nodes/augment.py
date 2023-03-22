@@ -103,52 +103,54 @@ def compute_khop_neighbourhood_distributions(g,
                                       features for each node. If `agg` is 'concat', then D = F * k,
                                       where F is the number of features and k is the number of hops. If
                                       `agg` is 'sum', then D = F.
-
-    (+) neigh_feat_std (torch.tensor): a (N x D) tensor representing the standard deviation of the k-hop
-                                       neighbourhood features for each node. If `agg` is 'concat', then
-                                       D = F * k, where F is the number of features and k is the number
-                                       of hops. If `agg` is 'sum', then D = F.
     '''
 
     if agg == 'concat':
         neigh_label_dist = torch.zeros((num_nodes, num_labels * k))
         neigh_feat_mu = torch.zeros((num_nodes, num_features * k))
-        neigh_feat_std = torch.zeros((num_nodes, num_features * k))
     elif agg == 'sum':
         neigh_label_dist = torch.zeros((num_nodes, num_labels))
         neigh_feat_mu = torch.zeros((num_nodes, num_features))
-        neigh_feat_std = torch.zeros((num_nodes, num_features))
 
+    g_k = g
     for i in range(k):
-        g_k = torch.pow(g, k)
+        # Compute the k-hop matrix
+        if i > 0:
+            g_k = g_k @ g
         
         for node_idx in range(num_nodes):
-            # Get the indices of the neighbours of the current node
-            neighbour_indices = torch.argwhere(g_k[node_idx, :]).squeeze(dim=-1)
-            # Get the labels of the neighbours of the current node
-            neighbour_labels = labels[neighbour_indices]
-            # Count the frequency of each label in the neighbours of the current node
-            label_counts = torch.bincount(neighbour_labels, minlength=num_labels)
-            # Get the features of the neighbours of the current node
-            neighbour_features = features[neighbour_indices, :]
+            # Count the number of paths between the current node and its neighbours
+            # neighbour_paths = torch.where(g_k[node_idx, :])
+            neighbour_paths = g_k
+
+            # Create torch.tensor that aggregates features of shape (F)
+            neigh_feats_agg = torch.zeros((num_features))
+            neigh_label_agg = torch.zeros((num_labels))
+
+            # Get the aggregated neighbour features and labels, scaled by the number of paths
+            # connecting the current node and its neighbours.
+            for neighbour_idx in range(num_nodes):
+
+                neigh_feats_agg += neighbour_paths[node_idx][neighbour_idx] * features[neighbour_idx, :]
+                neigh_label_agg[labels[neighbour_idx]] += neighbour_paths[node_idx][neighbour_idx]
 
             if agg == 'concat':
                 # Concatenate the k-hop neighbourhood distributions for each node
-                neigh_label_dist[node_idx, i*num_labels:(i+1)*num_labels] = label_counts / torch.sum(label_counts)
-                neigh_feat_mu[node_idx, i*num_features:(i+1)*num_features] = torch.mean(neighbour_features, dim=0)
-                neigh_feat_std[node_idx, i*num_features:(i+1)*num_features] = torch.std(neighbour_features, dim=0)
+                neigh_label_dist[node_idx, i*num_labels:(i+1)*num_labels] = neigh_label_agg / torch.sum(neigh_label_agg)
+                neigh_feat_mu[node_idx, i*num_features:(i+1)*num_features] = neigh_feats_agg / torch.sum(neighbour_paths[node_idx])
+                
+                print('Warning: Using concat aggregation results in a standard deviation of 0.')
+
             elif agg == 'sum':
                 # Sum the k-hop neighbourhood distributions for each node
-                neigh_label_dist[node_idx, :] += label_counts / torch.sum(label_counts)
-                neigh_feat_mu[node_idx, :] += torch.mean(neighbour_features, dim=0)
-                neigh_feat_std[node_idx, :] += torch.std(neighbour_features, dim=0)
+                neigh_label_dist[node_idx, :] += neigh_label_agg / torch.sum(neigh_label_agg, dim=1)
+                neigh_feat_mu[node_idx, :] += neigh_feats_agg / torch.sum(neigh_feats_agg)
         
     if agg == 'sum':
         neigh_label_dist /= k
         neigh_feat_mu /= k
-        neigh_feat_std /= k
 
-    return neigh_label_dist, neigh_feat_mu, neigh_feat_std
+    return neigh_label_dist, neigh_feat_mu
 
 
 def _binarize_tensor(g):
