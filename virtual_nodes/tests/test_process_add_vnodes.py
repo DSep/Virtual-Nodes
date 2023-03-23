@@ -44,13 +44,13 @@ def test_compute_khop_neighbourhood_distributions_concat_simple():
 def test_compute_khop_neighbourhood_distributions_concat():
     k = 2
     neigh_label_dist, neigh_feat_mu = compute_khop_neighbourhood_distributions(simple_g, 
-                                                                                               simple_features, 
-                                                                                               labels,
-                                                                                               k=k,
-                                                                                               num_nodes=simple_g.shape[0],
-                                                                                               num_features=simple_features.shape[1],
-                                                                                               num_labels=num_labels, 
-                                                                                               agg='concat')
+                                                                               simple_features, 
+                                                                               labels,
+                                                                               k=k,
+                                                                               num_nodes=simple_g.shape[0],
+                                                                               num_features=simple_features.shape[1],
+                                                                               num_labels=num_labels, 
+                                                                               agg='concat')
     
     print ("neigh_label_dist", neigh_label_dist)
     print ("neigh_feat_mu", neigh_feat_mu)
@@ -59,6 +59,27 @@ def test_compute_khop_neighbourhood_distributions_concat():
     assert neigh_feat_mu.shape == (simple_g.shape[0], simple_features.shape[1] * k)
 
     visualise_graph(simple_g, 'simple_g.png')
+
+
+def test_compute_khop_neighbourhood_distributions_mean():
+    k = 2
+    neigh_label_dist, neigh_feat_mu = compute_khop_neighbourhood_distributions(simple_g, 
+                                                                               simple_features, 
+                                                                               labels,
+                                                                               k=k,
+                                                                               num_nodes=simple_g.shape[0],
+                                                                               num_features=simple_features.shape[1],
+                                                                               num_labels=num_labels, 
+                                                                               agg='mean')
+    
+    print ("neigh_label_dist", neigh_label_dist)
+    print ("neigh_feat_mu", neigh_feat_mu)
+
+    assert neigh_label_dist.shape == (simple_g.shape[0], num_labels)
+    assert neigh_feat_mu.shape == (simple_g.shape[0], simple_features.shape[1])
+    print("MAKE SURE YOU DON'T HAVE NANs")
+    visualise_graph(simple_g, 'simple_g.png')
+
 
 
 def testcompute_neighbourhood_feature_label_distribution():
@@ -253,4 +274,5 @@ if __name__ == '__main__':
     # test_unmask_graph_add_vnodes_partial_masking(directed=True)
     # test_unmask_graph_add_vnodes_partial_masking(directed=False)
     # test_compute_khop_neighbourhood_distributions_concat_simple()
-    test_compute_khop_neighbourhood_distributions_concat()
+    # test_compute_khop_neighbourhood_distributions_concat()
+    test_compute_khop_neighbourhood_distributions_mean()

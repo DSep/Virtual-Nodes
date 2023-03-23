@@ -79,7 +79,7 @@ def compute_khop_neighbourhood_distributions(g,
                                              num_nodes, 
                                              num_features, 
                                              num_labels,
-                                             agg='concat'):
+                                             agg='mean'):
     '''
     Computes k-hop neighbourhood distributions over neighbourhood
     features and labels for each node in the graph.
@@ -89,26 +89,26 @@ def compute_khop_neighbourhood_distributions(g,
     (+) g (torch.tensor): Assumes raw adjacency matrix `g` (N x N) as a torch.tensor.
     (+) features (torch.tensor): is a (N x F) torch.tensor where each row represents the features of a node.
     (+) labels (torch.tensor): is a (N x 1) torch.tensor where each row represents the label of a node.
-    (+) agg (str): 'concat' or 'sum' to determine whether to concatenate or sum the k-hop neighbourhood distributions.
+    (+) agg (str): 'concat' or 'mean' to determine whether to concatenate or average the k-hop neighbourhood distributions.
 
     Returns:
 
     (+) neigh_label_dist (torch.tensor): a (N x D) tensor representing a probability distribution
                                          over the k-hop neighbourhood labels for each node. If 
                                          `agg` is 'concat', then D = K * k, where K is the number
-                                         of classes and k is the number of hops. If `agg` is 'sum',
+                                         of classes and k is the number of hops. If `agg` is 'mean',
                                          then D = K.
     
     (+) neigh_feat_mu (torch.tensor): a (N x D) tensor representing the mean of the k-hop neighbourhood
                                       features for each node. If `agg` is 'concat', then D = F * k,
                                       where F is the number of features and k is the number of hops. If
-                                      `agg` is 'sum', then D = F.
+                                      `agg` is 'mean', then D = F.
     '''
 
     if agg == 'concat':
         neigh_label_dist = torch.zeros((num_nodes, num_labels * k))
         neigh_feat_mu = torch.zeros((num_nodes, num_features * k))
-    elif agg == 'sum':
+    elif agg == 'mean':
         neigh_label_dist = torch.zeros((num_nodes, num_labels))
         neigh_feat_mu = torch.zeros((num_nodes, num_features))
 
@@ -130,7 +130,6 @@ def compute_khop_neighbourhood_distributions(g,
             # Get the aggregated neighbour features and labels, scaled by the number of paths
             # connecting the current node and its neighbours.
             for neighbour_idx in range(num_nodes):
-
                 neigh_feats_agg += neighbour_paths[node_idx][neighbour_idx] * features[neighbour_idx, :]
                 neigh_label_agg[labels[neighbour_idx]] += neighbour_paths[node_idx][neighbour_idx]
 
@@ -138,15 +137,14 @@ def compute_khop_neighbourhood_distributions(g,
                 # Concatenate the k-hop neighbourhood distributions for each node
                 neigh_label_dist[node_idx, i*num_labels:(i+1)*num_labels] = neigh_label_agg / torch.sum(neigh_label_agg)
                 neigh_feat_mu[node_idx, i*num_features:(i+1)*num_features] = neigh_feats_agg / torch.sum(neighbour_paths[node_idx])
-                
                 print('Warning: Using concat aggregation results in a standard deviation of 0.')
 
-            elif agg == 'sum':
+            elif agg == 'mean':
                 # Sum the k-hop neighbourhood distributions for each node
-                neigh_label_dist[node_idx, :] += neigh_label_agg / torch.sum(neigh_label_agg, dim=1)
-                neigh_feat_mu[node_idx, :] += neigh_feats_agg / torch.sum(neigh_feats_agg)
+                neigh_label_dist[node_idx, :] += neigh_label_agg / (torch.sum(neigh_label_agg) if torch.sum(neigh_label_agg) != 0 else 1)
+                neigh_feat_mu[node_idx, :] += neigh_feats_agg / (torch.sum(neigh_feats_agg) if torch.sum(neigh_feats_agg) != 0 else 1)
         
-    if agg == 'sum':
+    if agg == 'mean':
         neigh_label_dist /= k
         neigh_feat_mu /= k
 
@@ -496,7 +494,7 @@ def unmask_graph(g, features, labels, g_prime, features_prime, labels_prime, tra
     return g_restored, features_restored, labels_restored
 
 
-def create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, num_nodes_masked, num_labels, p, agg, clip=True):
+def create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, num_nodes_masked, num_labels, p, agg, khops, clip=True):
     """
     For all observable nodes, computes the neighbourhood mean and std deviations of the
     neighbourhood label distributions (NDs) for each class. Then for each node with an 
@@ -510,8 +508,14 @@ def create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, num
     """
 
     # Compute the distribution of the features and labels of the neighbours of each node in the graph.
-    label_neigh_dist, label_feat_mu, label_feat_std = compute_neighbourhood_feature_label_distribution(
-        masked_g, masked_features, masked_labels, num_labels)
+    if khops > 1:
+        label_neigh_dist, label_feat_mu = compute_khop_neighbourhood_distributions(masked_g,
+            masked_features, masked_labels, khops, num_nodes=num_nodes_masked, num_features=masked_features.shape[1],
+            num_labels=num_labels, agg=agg)
+        label_feat_std = None
+    else:
+        label_neigh_dist, label_feat_mu, label_feat_std = compute_neighbourhood_feature_label_distribution(
+            masked_g, masked_features, masked_labels, num_labels)
     
     # label_neigh_dist_objs, feat_neigh_dist_objs = convert_to_torch_distributions(label_neigh_dist, label_feat_mu, label_feat_std)
     node_neigh_delta, node_feat_delta = compute_differences(masked_g,
@@ -566,10 +570,11 @@ def augment_graph(
     num_features, 
     num_labels,
     p,
-    agg,
+    agg='mean',
     directed=False,
     clip=True,
     include_vnode_labels=False,
+    khops=1,
 ):
     '''
     Creates virtual nodes according to a chosen strategy.
@@ -586,6 +591,7 @@ def augment_graph(
                            directed or not.
     (+) clip (bool): Whether to clip the new features to 0 or 1.
     (+) include_vnode_labels (bool): Whether to mask the virtual nodes in the train mask.
+    (+) khops (int): How many hops to consider in computing baseline distributions.
 
     Returns:
 
@@ -603,7 +609,7 @@ def augment_graph(
     masked_features = features[train_mask, :]
     masked_labels = labels[train_mask]
     
-    num_new_nodes, new_edges, new_features, new_labels = create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, masked_g.shape[0], num_labels, p, agg, clip)
+    num_new_nodes, new_edges, new_features, new_labels = create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, masked_g.shape[0], num_labels, p, agg, khops=khops, clip=clip)
 
     if directed:
         print(f'Directed edges between virtual and target nodes, directed=={directed}')
