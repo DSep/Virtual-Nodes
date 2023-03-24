@@ -494,7 +494,7 @@ def unmask_graph(g, features, labels, g_prime, features_prime, labels_prime, tra
     return g_restored, features_restored, labels_restored
 
 
-def create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, num_nodes_masked, num_labels, p, agg, khops, clip=True):
+def create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, num_nodes_masked, num_labels, min_degree, p, agg, khops, clip=True):
     """
     For all observable nodes, computes the neighbourhood mean and std deviations of the
     neighbourhood label distributions (NDs) for each class. Then for each node with an 
@@ -517,6 +517,16 @@ def create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, num
         label_neigh_dist, label_feat_mu, label_feat_std = compute_neighbourhood_feature_label_distribution(
             masked_g, masked_features, masked_labels, num_labels)
     
+    # Filter out all nodes that are below degree min_degree
+    if min_degree > 0:
+        # Generate mask of nodes that are above min_degree
+        node_degree = torch.sum(masked_g, dim=1)
+        node_degree_mask = node_degree >= min_degree
+        # Filter out all nodes that are below min_degree
+        masked_g = masked_g[node_degree_mask, :][:, node_degree_mask]
+        masked_features = masked_features[node_degree_mask, :]
+        masked_labels = masked_labels[node_degree_mask]
+
     # label_neigh_dist_objs, feat_neigh_dist_objs = convert_to_torch_distributions(label_neigh_dist, label_feat_mu, label_feat_std)
     node_neigh_delta, node_feat_delta = compute_differences(masked_g,
                                                             masked_features,
@@ -570,6 +580,7 @@ def augment_graph(
     num_features, 
     num_labels,
     p,
+    min_degree=0,
     agg='mean',
     directed=False,
     clip=True,
@@ -587,6 +598,7 @@ def augment_graph(
     (+) labels (torch.tensor): Node labels of the full graph (unmasked) (N,).
     (+) train_mask (torch.tensor): Mask indicating which nodes we know the labels of (N,).
     (+) p (float): Proportion of nodes to add virtual nodes to.
+    (+) min_degree (int): Minimum degree of nodes that are allowed to be corrected.
     (+) undirected (bool): Whether the edges connecting virtual to target nodes should be
                            directed or not.
     (+) clip (bool): Whether to clip the new features to 0 or 1.
@@ -609,7 +621,7 @@ def augment_graph(
     masked_features = features[train_mask, :]
     masked_labels = labels[train_mask]
     
-    num_new_nodes, new_edges, new_features, new_labels = create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, masked_g.shape[0], num_labels, p, agg, khops=khops, clip=clip)
+    num_new_nodes, new_edges, new_features, new_labels = create_vnodes_naive_strategy_1(masked_g, masked_features, masked_labels, masked_g.shape[0], num_labels, min_degree, p, agg, khops=khops, clip=clip)
 
     if directed:
         print(f'Directed edges between virtual and target nodes, directed=={directed}')
